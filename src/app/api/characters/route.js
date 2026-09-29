@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { accountBlock, getAuthenticatedUser } from "@/lib/auth-helpers";
 
 // Helper to seed defaults if characters table is empty
 const DEFAULT_CHARACTERS = [
@@ -424,6 +425,7 @@ async function ensureDefaultCharacters() {
 
 export async function GET() {
   let customList = [];
+  let visibleDefaults = DEFAULT_CHARACTERS;
   try {
     const session = await getServerSession(authOptions);
     const userId = session?.user?.id;
@@ -436,28 +438,36 @@ export async function GET() {
       where: {
         isCustom: true,
         OR: [
-          { isPublic: true },
+          { isPublic: true, moderationStatus: "visible" },
           userId ? { userId } : null
         ].filter(Boolean)
       },
       orderBy: { createdAt: "desc" },
       take: 200,
     });
+    const hiddenDefaults = await prisma.character.findMany({
+      where: { isCustom: false, moderationStatus: "hidden" },
+      select: { id: true },
+    });
+    const hiddenDefaultIds = new Set(hiddenDefaults.map((character) => character.id));
+    visibleDefaults = DEFAULT_CHARACTERS.filter((character) => !hiddenDefaultIds.has(character.id));
   } catch (error) {
     console.error("[CHARACTERS_GET_WARNING] Database access failed, falling back to default characters:", error);
   }
 
   // Combine hardcoded defaults with DB custom characters
-  const combinedList = [...DEFAULT_CHARACTERS, ...customList];
+  const combinedList = [...visibleDefaults, ...customList];
 
   return NextResponse.json({ characters: combinedList });
 }
 
 export async function POST(req) {
   try {
-    const session = await getServerSession(authOptions);
-    const userId = session?.user?.id;
-    if (!userId) return NextResponse.json({ error: "Sign in to create a character" }, { status: 401 });
+    const user = await getAuthenticatedUser();
+    if (!user) return NextResponse.json({ error: "Sign in to create a character" }, { status: 401 });
+    const blocked = accountBlock(user);
+    if (blocked) return blocked;
+    const userId = user.id;
 
     const body = await req.json();
     const {
@@ -529,10 +539,12 @@ export async function POST(req) {
 
 export async function PATCH(req) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    const user = await getAuthenticatedUser();
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const blocked = accountBlock(user);
+    if (blocked) return blocked;
 
     const body = await req.json();
     const { characterId, isPublic } = body;
@@ -552,7 +564,7 @@ export async function PATCH(req) {
       return NextResponse.json({ error: "Character not found" }, { status: 404 });
     }
 
-    if (char.userId !== session.user.id) {
+    if (char.userId !== user.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

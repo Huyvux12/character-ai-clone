@@ -245,9 +245,7 @@ export default function ChatSpace({ params }) {
   const [savingMemory, setSavingMemory] = useState(false);
 
   // Upgrade modal state
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [overrideCredits, setOverrideCredits] = useState(null);
-  const userCredits = overrideCredits !== null ? overrideCredits : (session?.user?.credits ?? 50);
+  const planLabel = session?.user?.plan === "unlimited" ? "Unlimited" : "Free";
 
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -366,9 +364,9 @@ export default function ChatSpace({ params }) {
         }),
       });
 
-      if (res.status === 402) {
+      if (res.status === 402 || res.status === 403) {
         const errData = await res.json();
-        alert(errData.error || "Insufficient credits! Please top up.");
+        alert(errData.error || "This request was declined.");
         setMessages((prev) => prev.filter((m) => m.id !== tempUserMsg.id));
         setInputMessage(userText);
         return null;
@@ -386,14 +384,12 @@ export default function ChatSpace({ params }) {
           data.userMessage,
           data.assistantMessage,
         ]);
-        if (data.remainingCredits !== undefined) {
-          setOverrideCredits(data.remainingCredits);
-        }
+
         return data.assistantMessage;
       }
     } catch (err) {
       console.error("Post generation error", err);
-      alert(err.message || "An unexpected error occurred. Credits refunded if deducted.");
+      alert(err.message || "An unexpected error occurred.");
       const latest = await fetch(`/api/chats/${chatId}/messages`).then((res) => res.json()).catch(() => null);
       if (latest?.messages) setMessages(latest.messages);
       else setMessages((prev) => prev.filter((m) => m.id !== tempUserMsg.id));
@@ -487,9 +483,7 @@ export default function ChatSpace({ params }) {
         setMessages((prev) =>
           prev.map((m) => (m.id === targetMessageId ? data.assistantMessage : m)),
         );
-        if (data.remainingCredits !== undefined) {
-          setOverrideCredits(data.remainingCredits);
-        }
+
       }
     } catch (err) {
       alert(err.message || "Failed generating swipe");
@@ -536,9 +530,7 @@ export default function ChatSpace({ params }) {
           copy[actualIdx] = data.assistantMessage;
           return copy;
         });
-        if (data.remainingCredits !== undefined) {
-          setOverrideCredits(data.remainingCredits);
-        }
+
       }
     } catch (err) {
       alert(err.message || "Failed to regenerate");
@@ -574,9 +566,7 @@ export default function ChatSpace({ params }) {
       const data = await res.json();
       if (data.assistantMessage) {
         setMessages((prev) => [...prev, data.assistantMessage]);
-        if (data.remainingCredits !== undefined) {
-          setOverrideCredits(data.remainingCredits);
-        }
+
       }
     } catch (err) {
       alert(err.message || "Failed to continue story");
@@ -721,12 +711,6 @@ export default function ChatSpace({ params }) {
     window.open(`/api/chats/${chatId}/export?format=${format}`, "_blank");
   };
 
-  // Real upgrade redirect
-  const executeUpgrade = () => {
-    setShowUpgradeModal(false);
-    router.push("/pricing");
-  };
-
   // Media upload proxy
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -805,7 +789,7 @@ export default function ChatSpace({ params }) {
         }`}
       >
         <div className="flex items-center gap-2 justify-between mb-6">
-          <Link href="/" className="flex items-center gap-3 hover:opacity-95 transition-opacity">
+          <Link href="/explore" className="flex items-center gap-3 hover:opacity-95 transition-opacity">
             <div className="h-9 w-9 rounded-full flex items-center justify-center font-bold text-lg text-white shadow-lg shadow-blue-500/10">
               🤖
             </div>
@@ -878,14 +862,13 @@ export default function ChatSpace({ params }) {
           <div className="flex items-center justify-between mb-3 bg-zinc-950/60 p-2.5 rounded-lg border border-zinc-800/80">
             <div className="flex items-center gap-2">
               <span className="text-xs">⚡</span>
-              <span className="text-xs font-bold text-zinc-300">Credits:</span>
-              <span className="text-xs font-mono font-bold text-blue-400">{userCredits}</span>
+              <span className="text-xs font-bold text-zinc-300">{planLabel}</span>
             </div>
             <button
-              onClick={() => router.push("/pricing")}
+              onClick={() => router.push("/usage")}
               className="text-[10px] font-bold text-amber-400 hover:text-amber-300 transition uppercase tracking-wider"
             >
-              + Top up
+              Usage
             </button>
           </div>
 
@@ -921,7 +904,7 @@ export default function ChatSpace({ params }) {
             >
               <Menu className="w-5 h-5" />
             </button>
-            <Link href="/" className="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white transition">
+            <Link href="/explore" aria-label="Về danh sách nhân vật" className="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white transition">
               <ArrowLeft className="w-4 h-4" />
             </Link>
 
@@ -945,6 +928,9 @@ export default function ChatSpace({ params }) {
           </div>
 
           <div className="flex items-center gap-2">
+            <Link href="/usage" className="rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-300 hover:text-amber-200">
+              {planLabel} · Usage
+            </Link>
             <button
               onClick={() => setShowConfig(!showConfig)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition cursor-pointer ${

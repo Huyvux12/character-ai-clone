@@ -3,6 +3,7 @@ import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "./prisma";
 import { decryptApiKey, encryptApiKey, keyIdentity } from "./api-key";
+import { isAdminEmail } from "./admin-policy";
 
 export const authOptions = {
   adapter: PrismaAdapter(prisma),
@@ -83,11 +84,13 @@ export const authOptions = {
         try {
           const dbUser = await prisma.user.findUnique({
             where: { id: userId },
-            select: { credits: true, customApiKey: true }
+            select: { credits: true, customApiKey: true, plan: true, email: true }
           });
           if (dbUser) {
             token.credits = dbUser.credits;
+            token.plan = dbUser.plan || "free";
             token.hasCustomApiKey = Boolean(dbUser.customApiKey);
+            token.isAdmin = isAdminEmail(dbUser.email);
           }
         } catch (err) {}
       }
@@ -97,8 +100,10 @@ export const authOptions = {
       if (session.user && token) {
         session.user.id = token.id || token.sub;
         session.user.credits = token.credits;
+        session.user.plan = token.plan || "free";
         session.user.hasCustomApiKey = Boolean(token.hasCustomApiKey);
         session.user.isApiKeyUser = Boolean(token.isApiKeyUser);
+        session.user.isAdmin = Boolean(token.isAdmin);
       }
       return session;
     },

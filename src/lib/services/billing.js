@@ -1,59 +1,117 @@
-import { stripe } from "../stripe";
-import config from "../config";
 import { prisma } from "../prisma";
+import config from "../config";
+import { decideSepayEvent, makeInvoiceNumber, secretsMatch, summarizeIpn } from "../sepay-decision";
+import { buildCheckout, sepayConfigured, unlimitedOffer } from "../server/sepay";
 
 export const BillingService = {
-  async createCheckoutSession(userId, planId) {
-    if (!process.env.STRIPE_SECRET_KEY) throw new Error("Payments are not configured");
-    const plan = config.stripe.plans[planId];
-    if (!plan) throw new Error("Invalid plan selected");
+  async createUnlimitedCheckout(userId) {
+    if (!sepayConfigured()) {
+      const error = new Error("SePay is not configured");
+      error.statusCode = 503;
+      throw error;
+    }
+    const offer = unlimitedOffer();
+    if (!offer.sellable) {
+      const error = new Error("Unlimited plan price is not configured");
+      error.statusCode = 503;
+      throw error;
+    }
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true, disabledAt: true } });
+    if (!user) {
+      const error = new Error("User not found");
+      error.statusCode = 404;
+      throw error;
+    }
+    if (user.disabledAt) {
+      const error = new Error("This account is disabled");
+      error.statusCode = 403;
+      throw error;
+    }
+    if (user.plan === "unlimited") {
+      const error = new Error("Unlimited plan is already active");
+      error.statusCode = 409;
+      throw error;
+    }
 
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: `${config.stripe.plans[planId].name}`,
-              description: `Purchase ${plan.credits} credits to perform AI generations.`,
-            },
-            unit_amount: plan.price,
-          },
-          quantity: 1,
-        },
-      ],
-      mode: "payment",
-      success_url: `${config.auth.url}/pricing?success=true`,
-      cancel_url: `${config.auth.url}/pricing?canceled=true`,
-      metadata: { userId, credits: plan.credits.toString() },
+    const invoiceNumber = makeInvoiceNumber();
+    const order = await prisma.paymentOrder.create({
+      data: {
+        userId,
+        invoiceNumber,
+        planId: "unlimited",
+        amountVnd: offer.priceVnd,
+        status: "pending",
+      },
     });
-
-    return session.url;
+    const checkout = buildCheckout({
+      invoiceNumber: order.invoiceNumber,
+      amountVnd: order.amountVnd,
+      userId,
+      description: `Gói Unlimited ${config.appName}`.slice(0, 180),
+    });
+    return checkout;
   },
 
-  async handleWebhook(body, signature) {
-    if (!config.stripe.webhookSecret) throw new Error("Stripe webhook secret is not configured");
-    const event = stripe.webhooks.constructEvent(body, signature, config.stripe.webhookSecret);
-    if (event.type === "checkout.session.completed") {
-      const session = event.data.object;
-      const userId = session.metadata?.userId;
-      const credits = parseInt(session.metadata?.credits || "0", 10);
-
-      if (session.payment_status === "paid" && userId && Number.isSafeInteger(credits) && credits > 0 && credits <= 100000) {
-        await prisma.$transaction(async (tx) => {
-          // Unique event IDs prevent Stripe retries and either webhook URL from crediting twice.
-          const prior = await tx.creditLedgerEntry.findUnique({ where: { idempotencyKey: `stripe_${event.id}` } });
-          if (prior) return;
-          await tx.creditLedgerEntry.create({ data: {
-            userId, amount: credits, type: "purchase", status: "settled",
-            idempotencyKey: `stripe_${event.id}`, description: `Stripe checkout ${session.id}`,
-          } });
-          await tx.user.update({ where: { id: userId }, data: { credits: { increment: credits } } });
-        });
-        return { success: true, userId, credits };
-      }
+  async handleIpn(body, secretHeader) {
+    if (!secretsMatch(secretHeader, process.env.SEPAY_SECRET_KEY || "")) {
+      const error = new Error("Invalid SePay secret");
+      error.statusCode = 401;
+      throw error;
     }
-    return { success: false };
-  }
+    const invoiceNumber = body?.order?.order_invoice_number;
+    const order = invoiceNumber
+      ? await prisma.paymentOrder.findUnique({ where: { invoiceNumber: String(invoiceNumber) } })
+      : null;
+    const decision = decideSepayEvent(order, body);
+    const summary = summarizeIpn(body);
+
+    if (decision.action === "activate") {
+      await prisma.$transaction(async (tx) => {
+        const changed = await tx.paymentOrder.updateMany({
+          where: { id: order.id, status: { not: "paid" } },
+          data: {
+            status: "paid",
+            paidAt: new Date(),
+            sepayOrderId: body.order?.order_id || body.transaction?.transaction_id || null,
+            ipnSummary: summary,
+          },
+        });
+        if (changed.count !== 1) return;
+        await tx.user.update({
+          where: { id: order.userId },
+          data: { plan: "unlimited", planActivatedAt: new Date() },
+        });
+        await tx.adminAuditLog.create({
+          data: {
+            action: "plan_activated",
+            targetType: "user",
+            targetId: order.userId,
+            reason: `SePay ${order.invoiceNumber}`,
+            metadata: summary,
+          },
+        });
+      });
+    } else if (decision.action === "mismatch" && order) {
+      await prisma.paymentOrder.update({
+        where: { id: order.id },
+        data: { status: order.status === "paid" ? "paid" : "mismatch", ipnSummary: summary },
+      });
+    } else if (decision.action === "void" && order) {
+      await prisma.paymentOrder.update({
+        where: { id: order.id },
+        data: { ipnSummary: summary },
+      });
+      await prisma.adminAuditLog.create({
+        data: {
+          action: "payment_void_noted",
+          targetType: "payment_order",
+          targetId: order.id,
+          reason: order.invoiceNumber,
+          metadata: summary,
+        },
+      });
+    }
+
+    return { success: true, action: decision.action };
+  },
 };

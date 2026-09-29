@@ -40,6 +40,10 @@ model User {
   image               String?
   credits             Int                 @default(50)
   customApiKey        String?             @db.Text
+  plan                String              @default("free")
+  planActivatedAt     DateTime?
+  disabledAt          DateTime?
+  disabledReason      String?
   accounts            Account[]
   sessions            Session[]
   chats               Chat[]
@@ -49,6 +53,9 @@ model User {
   personas            Persona[]
   lorebooks           Lorebook[]
   creditLedgerEntries CreditLedgerEntry[]
+  paymentOrders       PaymentOrder[]
+  voiceRequests       VoiceRequest[]
+  auditLogs           AdminAuditLog[]
 }
 
 model UserImage {
@@ -77,6 +84,8 @@ model Character {
   cardJson           String?    @db.Text
   isCustom           Boolean    @default(true)
   isPublic           Boolean    @default(true)
+  moderationStatus   String     @default("visible")
+  moderationNote     String?
   userId             String?
   createdAt          DateTime   @default(now())
   user               User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
@@ -260,6 +269,51 @@ model AppInstance {
   config     String?   @db.Text
   createdAt  DateTime? @default(now())
   userId     String?
+}
+
+model PaymentOrder {
+  id            String    @id @default(cuid())
+  userId        String
+  invoiceNumber String    @unique
+  planId        String
+  amountVnd     Int
+  status        String    @default("pending")
+  sepayOrderId  String?
+  paidAt        DateTime?
+  ipnSummary    String?   @db.Text
+  createdAt     DateTime  @default(now())
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+model VoiceRequest {
+  id        String   @id @default(cuid())
+  userId    String
+  chatId    String?
+  type      String
+  status    String
+  error     String?  @db.Text
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type, createdAt])
+  @@index([status, createdAt])
+}
+
+model AdminAuditLog {
+  id          String   @id @default(cuid())
+  adminUserId String?
+  action      String
+  targetType  String
+  targetId    String
+  reason      String?  @db.Text
+  metadata    String?  @db.Text
+  createdAt   DateTime @default(now())
+  admin       User?    @relation(fields: [adminUserId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
 }
 
 model VerificationToken {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthenticatedUser, getOwnedChat } from "@/lib/auth-helpers";
+import { accountBlock, getAuthenticatedUser, getOwnedChat } from "@/lib/auth-helpers";
 import { assemblePrompt, findMatchingLoreEntries } from "@/lib/prompt-builder";
 import { getActiveLoreEntriesForChat } from "@/lib/lorebook";
 import { GenerationService } from "@/lib/services/generation";
@@ -89,6 +89,8 @@ export async function POST(req, { params }) {
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const blocked = accountBlock(user);
+    if (blocked) return blocked;
 
     const { id } = await params;
     const chat = await getOwnedChat(user.id, id);
@@ -149,12 +151,6 @@ export async function POST(req, { params }) {
     // Check custom API key if present
     const storedUser = await prisma.user.findUnique({ where: { id: user.id }, select: { customApiKey: true } });
     const customApiKey = decryptApiKey(storedUser?.customApiKey);
-    const isUsingCustomKey = Boolean(customApiKey && customApiKey.trim().length > 0);
-    const cost = isUsingCustomKey ? 0 : 2;
-    if (!isUsingCustomKey) {
-      const balance = await prisma.user.findUnique({ where: { id: user.id }, select: { credits: true } });
-      if (!balance || balance.credits < cost) return NextResponse.json({ error: "Insufficient credits" }, { status: 402 });
-    }
 
     let userMessage = null;
 
@@ -241,7 +237,6 @@ export async function POST(req, { params }) {
       structuredTurns,
       prompt: inputPrompt,
       imageUrl: action === "generate" ? imageUrl : null,
-      cost,
       customApiKey,
     });
 
@@ -356,7 +351,6 @@ export async function POST(req, { params }) {
     return NextResponse.json({
       userMessage,
       assistantMessage,
-      remainingCredits: generationResult.remainingCredits,
     });
   } catch (error) {
     console.error("[MESSAGES_POST_ERROR]", error.message);

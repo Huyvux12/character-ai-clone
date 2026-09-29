@@ -1,24 +1,17 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+import { getAuthenticatedUser } from "@/lib/auth-helpers";
 import { BillingService } from "@/lib/services/billing";
 
 export async function POST(req) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "Unauthorized. Please sign in." }, { status: 401 });
-    }
-
+    const user = await getAuthenticatedUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized. Please sign in." }, { status: 401 });
     const { planId } = await req.json();
-    if (!planId) {
-      return NextResponse.json({ error: "Missing planId parameter" }, { status: 400 });
-    }
-
-    const checkoutUrl = await BillingService.createCheckoutSession(session.user.id, planId);
-    return NextResponse.json({ url: checkoutUrl });
+    if (planId !== "unlimited") return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
+    const checkout = await BillingService.createUnlimitedCheckout(user.id);
+    return NextResponse.json(checkout);
   } catch (error) {
     console.error("Checkout route error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: error.statusCode || 500 });
   }
 }

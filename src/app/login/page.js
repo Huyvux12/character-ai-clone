@@ -10,7 +10,8 @@ function LoginContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("callbackUrl") || searchParams.get("next") || "/";
+  const requested = searchParams.get("callbackUrl") || searchParams.get("next") || "/explore";
+  const next = requested.startsWith("/") && !requested.startsWith("//") ? requested : "/explore";
 
   const [activeTab, setActiveTab] = useState("google"); // "google" | "apikey"
   const [apiKeyInput, setApiKeyInput] = useState("");
@@ -110,7 +111,7 @@ function LoginContent() {
               <span>Continue with Google</span>
             </button>
             <p className="text-[11px] text-center text-secondary-text">
-              Uses system credit balance. Ideal for credit pack purchases.
+              Đăng nhập Google để dùng gói Free hoặc Unlimited.
             </p>
           </div>
         ) : (
@@ -150,7 +151,7 @@ function LoginContent() {
             </button>
 
             <p className="text-[11px] text-center text-amber-400/90 font-medium">
-              ⚡ Chat with AI characters using your API key. 0 website credits required!
+              Dùng key MuAPI của bạn cho lượt chat. Voice và usage vẫn được hệ thống ghi lại.
             </p>
           </form>
         )}

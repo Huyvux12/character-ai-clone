@@ -1,121 +1,69 @@
-"use client";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import SiteFrame from "@/components/SiteFrame";
+import CheckoutButton from "@/components/CheckoutButton";
+import { unlimitedOffer } from "@/lib/server/sepay";
+import { formatVnd } from "@/lib/usage-math";
 
-import { useSession } from "next-auth/react";
-import { useState } from "react";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-import { FaCheck, FaInfoCircle } from "react-icons/fa";
-import axios from "axios";
-import toast, { Toaster } from "react-hot-toast";
+export const dynamic = "force-dynamic";
 
-const PLANS = [
-  { id: "basic", name: "Basic Pack", price: "$5", credits: 100, description: "Perfect for testing custom prompts and exploring styles." },
-  { id: "standard", name: "Standard Pack", price: "$10", credits: 250, description: "Ideal for regular creators wanting high resolution outputs." },
-  { id: "pro", name: "Professional Pack", price: "$20", credits: 600, description: "Designed for power users demanding batch exports and high speed.", popular: true },
-  { id: "business", name: "Business Pack", price: "$50", credits: 2000, description: "Maximum value pack for agency workflows and large volume generations." }
-];
+const NOTES = {
+  success: "SePay đã đưa bạn trở lại. Gói Unlimited chỉ bật sau khi thông báo thanh toán khớp đúng số tiền.",
+  error: "Thanh toán không thành công. Bạn có thể thử lại.",
+  cancel: "Bạn đã hủy thanh toán. Gói hiện tại không đổi.",
+};
 
-export default function Pricing() {
-  const { data: session, status } = useSession();
-  const [loadingPlan, setLoadingPlan] = useState(null);
-
-  const handleCheckout = async (planId) => {
-    if (status !== "authenticated") {
-      toast.error("You must sign in with Google to purchase credit packages.");
-      return;
-    }
-
-    setLoadingPlan(planId);
-    try {
-      const { data } = await axios.post("/api/checkout", { planId });
-      if (data.url) {
-        window.location.assign(data.url);
-      } else {
-        throw new Error("No redirection URL returned");
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error(err.response?.data?.error || "Failed to trigger Stripe checkout session.");
-    } finally {
-      setLoadingPlan(null);
-    }
-  };
+export default async function PricingPage({ searchParams }) {
+  const params = await searchParams;
+  const note = NOTES[params?.payment] || "";
+  const session = await getServerSession(authOptions);
+  let plan = "free";
+  if (session?.user?.id) {
+    const user = await prisma.user.findUnique({ where: { id: session.user.id }, select: { plan: true } }).catch(() => null);
+    plan = user?.plan || "free";
+  }
+  const offer = unlimitedOffer();
 
   return (
-    <div className="flex min-h-dvh flex-col bg-bg-page select-none text-primary-text overflow-hidden">
-      <Toaster position="top-right" />
-      <Navbar />
-
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-12 sm:px-6 lg:px-8 flex flex-col gap-10 overflow-y-auto scrollbar-subtle items-center">
-        <div className="text-center space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/20 rounded-full mb-1">
-            <FaInfoCircle className="text-primary text-xs" />
-            <span className="text-[10px] font-black text-primary uppercase tracking-widest">Pricing Plans</span>
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-black tracking-tight uppercase">Buy Credits Packs</h1>
-          <p className="text-xs sm:text-sm text-secondary-text max-w-lg leading-relaxed">
-            Purchase flexible credit packages to perform high-resolution predictions. Keep all profits — we handle AI infrastructure.
+    <SiteFrame>
+      <div className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-12 sm:px-6">
+        <div className="text-center">
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-primary">Bảng giá</p>
+          <h1 className="mt-3 text-3xl font-black sm:text-5xl">Free, hoặc Unlimited</h1>
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-secondary-text">
+            Không bán credit theo lượt. Chat và voice đều được đếm trên trang Usage. Unlimited là gói một lần {offer.priceVnd ? formatVnd(offer.priceVnd) : ""}, thanh toán bằng quét VietQR qua SePay.
           </p>
         </div>
-
-        {/* Pricing Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full max-w-5xl">
-          {PLANS.map((plan) => (
-            <div
-              key={plan.id}
-              className={`relative bg-bg-card border rounded-lg p-6 flex flex-col justify-between gap-6 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 ${
-                plan.popular ? "border-primary shadow-xl shadow-primary/5 scale-105" : "border-divider/50 shadow-md"
-              }`}
-            >
-              {plan.popular && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-white text-[9px] font-black uppercase px-3 py-1 rounded-full tracking-wider shadow">
-                  Most Popular
-                </span>
-              )}
-
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <h3 className="text-sm font-extrabold uppercase tracking-wide text-primary-text">{plan.name}</h3>
-                  <p className="text-2xl font-black tracking-tight text-white">{plan.price}</p>
-                </div>
-                
-                <div className="text-xs bg-bg-page/50 border border-divider/30 p-3 rounded text-center font-extrabold text-primary">
-                  {plan.credits} Art Credits
-                </div>
-
-                <p className="text-xs text-secondary-text leading-relaxed font-medium min-h-[3rem]">{plan.description}</p>
-                
-                <ul className="space-y-2 border-t border-divider/30 pt-4 text-xs font-semibold text-secondary-text">
-                  <li className="flex items-center gap-2">
-                    <FaCheck className="text-primary text-[10px]" />
-                    <span>Dynamic aspect ratios</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <FaCheck className="text-primary text-[10px]" />
-                    <span>HD image downloads</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <FaCheck className="text-primary text-[10px]" />
-                    <span>No subscription required</span>
-                  </li>
-                </ul>
-              </div>
-
-              <button
-                onClick={() => handleCheckout(plan.id)}
-                disabled={loadingPlan !== null}
-                className={`w-full py-3 rounded-full text-xs font-bold transition-all shadow-md cursor-pointer select-none active:scale-[0.98] ${
-                  plan.popular ? "bg-primary text-white hover:bg-primary-hover shadow-primary/15" : "bg-bg-page hover:bg-bg-card text-primary-text border border-divider"
-                }`}
-              >
-                {loadingPlan === plan.id ? "Loading checkout..." : "Purchase Credits"}
-              </button>
+        {note && <p className="rounded-2xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm">{note}</p>}
+        <div className="grid gap-4 md:grid-cols-2">
+          <article className={`rounded-3xl border p-6 ${plan === "free" ? "border-primary" : "border-divider/50"} bg-bg-card`}>
+            <h2 className="text-lg font-black">Free</h2>
+            <p className="mt-2 text-3xl font-black">0 ₫</p>
+            <ul className="mt-4 space-y-2 text-sm text-secondary-text">
+              <li>Chat với nhân vật giả tưởng</li>
+              <li>Nói và nghe voice</li>
+              <li>Trang Usage của riêng bạn</li>
+            </ul>
+            {session?.user && plan === "free" && <p className="mt-5 text-xs font-bold text-primary">Đây là gói hiện tại của bạn.</p>}
+          </article>
+          <article className={`rounded-3xl border p-6 ${plan === "unlimited" ? "border-primary" : "border-divider/50"} bg-bg-card`}>
+            <h2 className="text-lg font-black">Unlimited</h2>
+            <p className="mt-2 text-3xl font-black">{offer.priceVnd ? formatVnd(offer.priceVnd) : "Giá chưa hợp lệ"}</p>
+            <ul className="mt-4 space-y-2 text-sm text-secondary-text">
+              <li>Không giới hạn lượt theo gói</li>
+              <li>Usage vẫn được ghi để bạn và admin theo dõi</li>
+              <li>Thanh toán một lần, tiền vào tài khoản SePay của bạn</li>
+            </ul>
+            <div className="mt-5">
+              <CheckoutButton configured={offer.sellable} currentPlan={plan} />
             </div>
-          ))}
+          </article>
         </div>
-      </main>
-
-      <Footer />
-    </div>
+        <p className="text-xs leading-relaxed text-secondary-text">
+          Merchant ID và Secret Key để trống trong biến môi trường cho đến khi bạn điền. Khi chưa có khóa, nút mua ở trạng thái chưa cấu hình và không tạo đơn.
+        </p>
+      </div>
+    </SiteFrame>
   );
 }

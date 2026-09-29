@@ -1,197 +1,110 @@
-# 🤖 Open Character AI — Interactive Persona Chat Portal & Companion SaaS
+# Voice chat với nhân vật giả tưởng
 
-> **An interactive, high-fidelity AI companion portal where users explore preset personas, forge custom AI characters, and fine-tune LLM parameters per chat.** Built with Next.js (App Router), this application is a self-contained SaaS boilerplate featuring user authentication, credit billing, and a beautiful chat interface powered by the MuAPI engine.
+Ứng dụng Next.js để nói chuyện với persona giả tưởng và nghe họ trả lời. Người dùng chọn nhân vật, nói tiếng Việt hoặc tiếng Anh, rồi nhận câu trả lời bằng chữ và bằng giọng. File ghi âm không được lưu. Câu chữ nằm trong hội thoại.
 
-<p align="center">
-  <a href="https://github.com/Anil-matcha/awesome-generative-ai-apps">
-    <img src="https://img.shields.io/badge/Part%20of-Awesome%20Generative%20AI%20Apps-FFD700?style=for-the-badge&logo=github&logoColor=black" alt="Awesome Generative AI Apps">
-  </a>
-</p>
+Repo: [github.com/Huyvux12/character-ai-clone](https://github.com/Huyvux12/character-ai-clone)
 
-> 🎨 **[Explore 50+ more open-source AI apps →](https://github.com/Anil-matcha/awesome-generative-ai-apps)**
+Trang quảng cáo tĩnh nằm trên nhánh `landing` và dùng được với GitHub Pages: [huyvux12.github.io/character-ai-clone](https://huyvux12.github.io/character-ai-clone/) sau khi bật Pages theo mục bên dưới.
 
-https://github.com/user-attachments/assets/b6e252c0-6e06-4333-bc53-5d6856811868
+## Trang trong ứng dụng
 
-## 🌐 Project Details
+| Đường dẫn | Việc |
+|---|---|
+| `/` | Trang giới thiệu tiếng Việt |
+| `/explore` | Thư viện nhân vật, tạo và nhập card |
+| `/[tên]/[id]` | Hội thoại, micro, nghe trả lời |
+| `/pricing` | Free và Unlimited |
+| `/usage` | Số lượt của chính người dùng |
+| `/admin` | Console của chủ sản phẩm |
+| `/terms`, `/privacy`, `/refund` | Trang pháp lý, chỗ trống để điền tên công ty |
 
-**GitHub Repository:** [github.com/Anil-matcha/open-character-ai](https://github.com/Anil-matcha/open-character-ai)
+## Gói và thanh toán
 
-**Live Demo:** [open-character-ai.vercel.app](https://open-character-ai.vercel.app/)
+Có hai gói. **Free** là mặc định, chat và voice đều dùng được, không có hạn mức cứng. **Unlimited** là 250.000đ, thanh toán một lần bằng VietQR qua SePay, không hết hạn. Gói chỉ bật khi IPN `ORDER_PAID` khớp đúng số tiền. Trang quay lại sau khi quét mã không tự bật gói.
 
-Sign in with Google to explore preset characters, customize your own companion, tune generation parameters in real-time, and manage credit tokens.
+Mỗi tin người dùng, câu trả lời, lần nói và lần nghe được đếm trên `/usage`. Không trừ credit theo lượt.
 
----
+Admin là email liệt kê trong `ADMIN_EMAILS`. Danh sách trống thì không ai vào được `/admin`. Admin xem usage, đơn, lỗi, nhật ký, khóa tài khoản, trả gói về Free, hoặc ẩn nhân vật công khai.
 
-Open Character AI is a production-ready, highly-optimized AI web application. Out of the box, it seamlessly manages User Authentication, Credits & Billing, Chat Persistence, and real-time LLM interaction utilizing a sleek Next.js (App Router) architecture. It empowers creators, developers, and brands to host their own custom companion portals.
+## Chạy local
 
-**Why use Open Character AI?**
-
-- **Production-Ready SaaS** — Complete with Google OAuth and Stripe Checkout workflows built-in.
-- **Glassmorphic Chat UI** — A premium dark mode user interface featuring message bubbles, typing indicators, custom avatars, and a slide-out parameter console.
-- **Interactive Character Builder** — Create public or private personas with custom system prompts, greets, and avatars.
-- **Dynamic LLM Tuning** — Slide-out drawer configuration allows adjusting Temperature, Max Tokens, and System Prompt values per chat thread.
-- **Persistent Chat History** — All conversations, customized parameters, and creations are securely saved to a PostgreSQL database via Prisma ORM.
-
-![Open Character AI Screenshot](https://cdn.muapi.ai/data/2/566606463946/Screenshot_2026-05-19_174317.png)
-
----
-
-## ✨ Core Features
-
-### This fork: discovery UI and generation backend
-
-- The home page now has a featured conversation, search, responsive character cards, and working **For you / Originals / Community / My characters** filters. Chat uses the same visual palette.
-- Configure `LLM_BASE_URL`, `LLM_API_KEY`, and `LLM_MODEL` to route site-funded chats through an OpenAI-compatible `/chat/completions` endpoint. If unset, site-funded chats use `MU_API_KEY`. User supplied keys continue to use MuAPI. Remote base URLs must use HTTPS.
-- User MuAPI keys are encrypted in `User.customApiKey` with AES-GCM and are no longer returned through the session or API response. Set a stable `API_KEY_ENCRYPTION_KEY` (32+ characters), or keep `NEXTAUTH_SECRET` stable. Existing plaintext keys are read for compatibility and migrated on the next key sign-in/save. Changing the encryption secret without re-entering keys makes encrypted keys unreadable.
-- Credit reservation checks the current DB balance inside a transaction. Failed generations refund once. Both Stripe webhook paths share event ID deduplication. Existing Stripe events handled before this upgrade do not have ledger entries, so reconcile them before replaying old events.
-- Set `AUTO_MEMORY_ENABLED=true` to summarize older chat turns as they leave the recent context. This uses an additional model call about every 10 older messages and does not charge the user extra credits; the host bears the provider cost. Manual pinned facts remain available.
-- Voice chat uses browser microphone recording, Groq Whisper transcription, the existing chat pipeline, then Gemini speech synthesis. Set `GROQ_API_KEY` and `GEMINI_API_KEY` on the server. Optional `GROQ_STT_MODEL` defaults to `whisper-large-v3-turbo`; `GEMINI_TTS_MODEL` defaults to `gemini-3.8-flash-lite-tts` (switch to `gemini-3.8-flash-tts` for higher fidelity). Tap the microphone to start and again to stop/send. Choose Vietnamese, English or automatic recognition and the Kore or Puck voice. Recordings stop after 60 seconds and are not stored in the chat database; only the transcript and text reply are saved. The TTS route reads only a reply in the user's chat. Each speech endpoint allows up to 10 requests per minute per user. Microphone access requires HTTPS or localhost. STT and TTS make separate provider calls beyond the chat LLM call, billed to the configured service accounts.
-
-For local checks, run `npm ci`, `node --test tests/backend.test.mjs`, `npm run lint`, and `npm run build`. A live login, database migration, upstream model call, and Stripe checkout require your own credentials and PostgreSQL instance. No Prisma schema migration is needed for this fork.
-
-### 💬 Interactive Chat Studio (`/[character_name]/[id]`)
-- Fully-featured messaging workspace with typing simulation.
-- **LLM Tuning Panel** — Slider controls to dynamically tweak `Temperature`, `Max Tokens`, and edit/override `System Prompt` instructions per session.
-- Message history persisted in database with real-time UI synchronization.
-
-### 🎭 Dashboard & Character Builder (`/`)
-- Choose from featured, anime, helper, or gaming categories.
-- Create new companion personas via a visual builder modal specifying Name, Description, Greeting Message, Personality, System Instructions, Avatar, and Visibility (Public vs. Private).
-
-### 💳 Stripe Credit Billing (`/pricing`)
-- Select credit pack plans for premium LLM interactions.
-- Pay-as-you-go credit balances, instantly updated via Stripe checkout webhooks.
-
-### 🔐 Google Authentication & Persistence
-- NextAuth Google provider mapped to the shared PostgreSQL schema via Prisma.
-- Live credit tracker with real-time balance checks before message telemetry.
-
----
-
-## ⚠️ Database Safety Warning (Shared Pool)
-
-This application shares a single PostgreSQL database instance on Supabase with other applications in this workspace. Running `npx prisma db push` on a clean, empty schema will drop tables belonging to other applications. Always follow the **Pull-Declare-Push-Cleanup** sequence:
-
-1. **Introspect First**: Run `npx prisma db pull` to fetch all existing tables into your local `schema.prisma`.
-2. **Declare Your Models**: Declare your application-specific tables (`Character`, `Chat`, `Message`, `Creation`, `UserImage`) and update their relations inside the `User` model.
-3. **Push Changes**: Run `npx prisma db push` to safely update the database schema without touching or dropping existing tables of other apps.
-4. **Clean Up Schema**: Remove other apps' models from `schema.prisma` to keep the code clean and compile compact types (retain only `Account`, `Session`, `User`, `VerificationToken`, your custom tables, and the `User` relations).
-5. **Generate Client**: Run `npx prisma generate` to rebuild the type-safe Prisma client for your selected models.
-
----
-
-## ⚡ Deployment: Vercel & Production
-
-This architecture is engineered explicitly for **Vercel** serverless environments.
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Anil-matcha/open-character-ai)
-
-### 🔑 Required Environment Variables
-
-To successfully deploy and run, populate the following environment variables in your Vercel project settings:
-
-| Service | Variable | Description & Source |
-| :--- | :--- | :--- |
-| **Database** | `DATABASE_URL` | PostgreSQL connection string ([Supabase](https://supabase.com) or [Neon](https://neon.tech)) |
-| | `DIRECT_URL` | Direct DB connection for Prisma migrations and schema introspections |
-| **NextAuth / Google** | `NEXTAUTH_SECRET` | Secure random string generated via `openssl rand -base64 32` |
-| | `NEXTAUTH_URL` | Your production domain (e.g. `https://open-character-ai.vercel.app`) |
-| | `GOOGLE_CLIENT_ID` | Get from [Google Cloud Console](https://console.cloud.google.com/apis/credentials) |
-| | `GOOGLE_CLIENT_SECRET` | Get from [Google Cloud Console](https://console.cloud.google.com/apis/credentials) |
-| **Stripe Billing** | `STRIPE_SECRET_KEY` | Get from [Stripe Dashboard](https://dashboard.stripe.com/apikeys) |
-| | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Get from [Stripe Dashboard](https://dashboard.stripe.com/apikeys) |
-| | `STRIPE_WEBHOOK_SECRET` | Webhook secret for resolving credit purchases |
-| **AI Generator / LLM** | `MU_API_KEY` | API key from [muapi.ai](https://muapi.ai?utm_source=github&utm_medium=readme&utm_campaign=open-character-ai) (for model routing/API calls) |
-| | `WEBHOOK_URL` | Webhook URL endpoint for async events |
-| **UI Configuration** | `NEXT_PUBLIC_THEME` | Dynamic UI color theme accent: Choose from `indigo`, `emerald`, `rose`, `amber`, `violet` |
-
-### 🚀 Launching on Vercel: Step-by-Step
-
-1. **Database Provisioning**: Create a new Postgres database (via Supabase or Neon) and retrieve connection URLs.
-2. **Project Creation**: Import your GitHub repository into the Vercel dashboard.
-3. **Configure Environment Variables**: Add all variables listed in the settings tab.
-4. **Deploy**: Build with Vercel. Next.js page generation will run Prisma client generation automatically via our script config.
-5. **Database Push**: Synchronize database models before launching.
-6. **Webhooks Setup**: Configure Stripe checkout webhook to point to `/api/stripe/webhook`.
-
----
-
-## 🛠️ Local Development
-
-### Prerequisites
-
-- [Node.js](https://nodejs.org/en/) (v18 or higher)
-- A local/cloud PostgreSQL instance.
-
-### Setup
+Cần Node.js 20+ và một Postgres của riêng app này.
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/Anil-matcha/open-character-ai
-cd open-character-ai
-
-# 2. Install dependencies
 npm install
-
-# 3. Setup Environment
-cp .env.example .env
-# Open .env and insert your specific keys.
-
-# 4. Initialize Database Schema
-# Note: Because the database is shared, see the Safety Warning above!
+copy .env.example .env
 npx prisma generate
 npx prisma db push
-
-# 5. Start the Development Server
 npm run dev
 ```
 
-The console should now be active on `http://localhost:3000`.
+Mở http://localhost:3000.
 
----
+`npx prisma db push` ghi schema của app này (gói, đơn SePay, voice, audit) lên database trong `DATABASE_URL`. Chỉ chạy trên database của app. Đừng đẩy schema lên một Postgres đang dùng chung với ứng dụng khác.
 
-## 🏗️ Technical Architecture
+Kiểm tra trước khi deploy:
 
-```
-character-ai/
-├── prisma/
-│   └── schema.prisma           # Postgres schema (User, Account, Session, Character, Chat, Message, Creation, UserImage)
-├── src/
-│   ├── app/                    # Next.js App Router
-│   │   ├── page.js             # Dashboard / Character selection & custom character builder modal
-│   │   ├── layout.js           # Root layout importing fonts, background styles, and Providers
-│   │   ├── globals.css         # Global cyber/dark styling utilities and variables
-│   │   ├── pricing/            # Credit purchase plans & checkout triggers (/pricing)
-│   │   │   └── page.js
-│   │   ├── [character_name]/[id]/
-│   │   │   └── page.js         # Interactive chat interface with parameter controls and message list
-│   │   └── api/
-│   │       ├── auth/           # NextAuth Google OAuth handler
-│   │       ├── characters/     # GET / POST characters (custom builder handler)
-│   │       ├── chats/          # GET / POST chats, messages list, parameters tuning
-│   │       │   ├── [id]/
-│   │       │   │   └── messages/   # GET / POST messages for a specific chat
-│   │       │   └── route.js
-│   │       ├── images/         # Upload/CDN helpers for avatars
-│   │       ├── stripe/         # Checkout session creation & payment webhooks
-│   │       └── upload/         # File uploading helper endpoint
-│   ├── components/
-│   │   └── Providers.jsx       # NextAuth SessionProvider wrapper
-│   └── lib/
-│       ├── auth.js             # NextAuth configuration with Google OAuth and Prisma adapter
-│       └── prisma.js           # Global PrismaClient singleton with PG adapter
-└── next.config.mjs             # Next.js configuration
+```bash
+npm test
+npm run lint
+npm run build
 ```
 
----
+## Biến môi trường
 
-## 🔗 Related Projects
+Mẫu để trống nằm ở `.env.example`.
 
-- [Open-Pomelli](https://github.com/SamurAIGPT/Open-Pomelli) — Open-source Pomelli alternative — self-hosted AI assistant platform.
-- [Open-Poe-AI](https://github.com/Anil-matcha/Open-Poe-AI) — Open-source Poe alternative — chat with multiple LLMs from one interface.
+| Biến | Việc |
+|---|---|
+| `DATABASE_URL`, `DIRECT_URL` | Postgres của app |
+| `NEXTAUTH_SECRET`, `NEXTAUTH_URL` | Phiên đăng nhập |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Đăng nhập Google |
+| `ADMIN_EMAILS` | Email admin, cách nhau bởi dấu phẩy |
+| `SEPAY_MERCHANT_ID`, `SEPAY_SECRET_KEY` | Để trống đến khi có merchant |
+| `SEPAY_ENV` | `sandbox` hoặc `production` |
+| `PLAN_UNLIMITED_VND` | Để trống thì giá là 250000 |
+| `NEXT_PUBLIC_APP_NAME` | Tên hiển thị. Trống thì dùng Open Character AI |
+| `NEXT_PUBLIC_COMPANY_NAME`, `NEXT_PUBLIC_COMPANY_EMAIL`, `NEXT_PUBLIC_COMPANY_ADDRESS` | Điền trước khi công khai trang pháp lý |
+| `MU_API_KEY` | Key chat khi không dùng endpoint OpenAI-compatible |
+| `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | Chat qua `/chat/completions`. Base URL phải là HTTPS |
+| `API_KEY_ENCRYPTION_KEY` | Mã hóa key MuAPI do người dùng tự nhập. Trống thì dùng `NEXTAUTH_SECRET` |
+| `GROQ_API_KEY`, `GROQ_STT_MODEL` | Nhận giọng. Model trống thì `whisper-large-v3-turbo` |
+| `GEMINI_API_KEY`, `GEMINI_TTS_MODEL` | Đọc trả lời. Model trống thì `gemini-3.8-flash-lite-tts` |
+| `AUTO_MEMORY_ENABLED` | `true` thì tóm tắt đoạn chat cũ. Chi phí thuộc về key của nền tảng |
 
----
+Trong SePay, IPN URL là `https://<domain-app>/api/sepay/ipn`, kiểu xác thực Secret Key, trùng `SEPAY_SECRET_KEY`.
 
-## 📄 License
+Voice dùng key Groq và Gemini của nền tảng. Micro cần HTTPS hoặc localhost. Mỗi loại voice tối đa 10 request mỗi phút cho một người dùng.
 
-MIT Licensed.
+## Trang quảng cáo trên GitHub Pages
+
+Nhánh `main` là ứng dụng. Nhánh `landing` chỉ có `index.html` tĩnh, không chạy Next.js, database hay SePay.
+
+Bật Pages một lần:
+
+1. Mở repo trên GitHub → **Settings** → **Pages**.
+2. **Build and deployment** chọn **Deploy from a branch**.
+3. Branch **`landing`**, folder **`/ (root)`**, rồi Save.
+
+Sau khi Pages xanh, link quảng cáo là https://huyvux12.github.io/character-ai-clone/
+
+Nút chính trên trang đó đọc meta `app-url` trong `index.html`. Để trống thì nút ghi "Sắp mở cửa". Khi app đã có domain, sửa dòng này trên nhánh `landing` rồi push lại nhánh đó:
+
+```html
+<meta name="app-url" content="https://domain-cua-app">
+```
+
+## Bố cục code
+
+```
+prisma/schema.prisma          User, Character, Chat, Message, đơn SePay, voice, audit
+src/app/page.js               Trang giới thiệu
+src/app/explore/page.js       Thư viện nhân vật
+src/app/pricing/page.js       Hai gói
+src/app/usage/page.js         Usage của người dùng
+src/app/admin/                Console chủ sản phẩm
+src/app/api/sepay/ipn/        IPN SePay
+src/app/api/checkout/         Tạo đơn Unlimited
+src/app/api/voice/            STT và TTS
+src/lib/server/sepay.js       Khóa SePay, chỉ chạy trên server
+```

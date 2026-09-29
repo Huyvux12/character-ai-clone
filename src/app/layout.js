@@ -14,15 +14,15 @@ const outfit = Outfit({
 });
 
 export const metadata = {
-  title: "Open Character AI - Futuristic Persona Chat Portal",
-  description: "Open-source Character.AI alternative — chat with high-fidelity pre-defined or custom-created AI personas, with per-chat LLM tuning, powered by Next.js, Prisma, and Supabase.",
+  title: `${config.appName} — Voice chat với nhân vật giả tưởng`,
+  description: "Chọn một nhân vật giả tưởng, nói bằng giọng của bạn và nghe nhân vật trả lời. Hội thoại được lưu; file ghi âm không được lưu.",
 };
 
 export default function RootLayout({ children }) {
   const theme = config?.theme || "slate-indigo";
 
   return (
-    <html lang="en" className={`h-full scroll-smooth ${inter.variable} ${outfit.variable}`} data-theme={theme}>
+    <html lang="vi" className={`h-full scroll-smooth ${inter.variable} ${outfit.variable}`} data-theme={theme}>
       <body
         className={`${inter.className} min-h-full flex flex-col antialiased bg-bg-page text-primary-text`}
       >
@@ -33,4 +33,3 @@ export default function RootLayout({ children }) {
     </html>
   );
 }
-

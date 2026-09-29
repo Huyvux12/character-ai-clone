@@ -54,6 +54,7 @@ export default function VoiceChatControls({ chatId, onTranscript, onRecordingCha
       const form = new FormData();
       form.set("audio", new File([blob], `recording.${extension}`, { type }), `recording.${extension}`);
       form.set("language", language);
+      form.set("chatId", chatId);
       const sttResponse = await fetch("/api/voice/transcribe", { method: "POST", body: form });
       const sttData = await sttResponse.json();
       if (!sttResponse.ok) throw new Error(sttData.error || "Transcription failed");

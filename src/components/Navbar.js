@@ -5,8 +5,7 @@ import { useSession, signOut, signIn } from "next-auth/react";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { IoClose, IoMenu } from "react-icons/io5";
-import { FiMoon, FiSun, FiLogOut, FiDollarSign, FiPlus, FiUser, FiKey, FiCheck, FiX, FiTrash2 } from "react-icons/fi";
-import { SiVercel } from "react-icons/si";
+import { FiLogOut, FiUser, FiKey, FiCheck, FiX, FiTrash2 } from "react-icons/fi";
 import config from "@/lib/config";
 import toast from "react-hot-toast";
 
@@ -29,20 +28,13 @@ export default function Navbar() {
     setIsApiKeyModalOpen(true);
   };
 
-  const appMatch = pathname ? pathname.match(/^\/app\/([^\/]+)/) : null;
-  const currentAppId = appMatch ? appMatch[1] : null;
-
-  const navLinks = currentAppId
-    ? [
-        { name: "Workspace", path: `/app/${currentAppId}` },
-        { name: "Gallery", path: `/app/${currentAppId}/gallery` },
-        { name: "Pricing", path: `/app/${currentAppId}/pricing` },
-      ]
-    : [
-        { name: "Workspace", path: "/" },
-        { name: "Gallery", path: "/gallery" },
-        { name: "Pricing", path: "/pricing" },
-      ];
+  const navLinks = [
+    { name: "Trang chủ", path: "/" },
+    { name: "Khám phá", path: "/explore" },
+    { name: "Bảng giá", path: "/pricing" },
+  ];
+  if (status === "authenticated") navLinks.push({ name: "Usage", path: "/usage" });
+  if (session?.user?.isAdmin) navLinks.push({ name: "Admin", path: "/admin" });
 
   const handleSaveApiKey = async (e) => {
     e.preventDefault();
@@ -143,17 +135,6 @@ export default function Navbar() {
         {/* Desktop Actions Section */}
         <div className="hidden md:flex items-center gap-3">
           
-          {/* Vercel Deploy Button */}
-          <a
-            href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FSamurAIGPT%2Fcommon-saas-template"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 rounded-full border border-divider px-4 py-1.5 text-xs font-bold text-secondary-text hover:text-primary-text hover:bg-bg-card transition-colors shadow-sm"
-          >
-            <SiVercel className="text-xs text-white" />
-            <span>Deploy</span>
-          </a>
-
           {/* Add/Manage API Key - Directly visible in Navbar */}
           <button
             onClick={handleOpenApiKeyModal}
@@ -169,21 +150,9 @@ export default function Navbar() {
 
           {status === "authenticated" ? (
             <div className="flex items-center">
-              {/* Credit Balance indicator */}
-              <div className="flex items-center h-9 border border-divider rounded-l bg-bg-page/30 overflow-hidden pr-2">
-                <span className="font-bold text-[13px] px-3 flex items-center text-primary-text gap-1">
-                  <FiDollarSign className="text-emerald-500 text-xs" />
-                  {isApiKeyActive ? "∞ (API Key)" : session.user.credits !== undefined ? session.user.credits : 0}
-                </span>
-                {!isApiKeyActive && (
-                  <Link
-                    href="/pricing"
-                    className="flex items-center justify-center w-5 h-5 rounded hover:bg-bg-card text-secondary-text transition-colors"
-                  >
-                    <FiPlus size={14} />
-                  </Link>
-                )}
-              </div>
+              <Link href="/usage" className="flex items-center h-9 border border-divider rounded-l bg-bg-page/30 px-3 text-[13px] font-bold text-primary-text">
+                {session.user.plan === "unlimited" ? "Unlimited" : "Free"}
+              </Link>
 
               {/* Profile Menu Toggle */}
               <div className="relative">
@@ -209,6 +178,13 @@ export default function Navbar() {
                     <div className="px-3 py-2 text-xs text-secondary-text border-b border-divider/50 mb-1 truncate">
                       {session.user.email}
                     </div>
+                    <Link
+                      href="/usage"
+                      className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-xs font-semibold text-primary-text hover:bg-primary/10 transition-colors"
+                    >
+                      <FiUser size={14} />
+                      <span>Usage của tôi</span>
+                    </Link>
                     <button
                       onClick={handleOpenApiKeyModal}
                       className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-xs font-semibold text-primary-text hover:bg-primary/10 transition-colors"
@@ -232,7 +208,7 @@ export default function Navbar() {
               href="/login"
               className="bg-primary text-white px-5 py-1.5 rounded-full text-sm font-bold hover:bg-primary-hover transition-all shadow-md shadow-primary/20"
             >
-              Sign In
+              Đăng nhập
             </Link>
           )}
         </div>
@@ -240,10 +216,9 @@ export default function Navbar() {
         {/* Mobile Navbar Controls */}
         <div className="flex md:hidden items-center gap-2">
           {status === "authenticated" && (
-            <div className="flex items-center h-8 border border-divider rounded bg-bg-page/30 px-2.5 text-xs font-bold text-primary-text gap-0.5">
-              <FiDollarSign className="text-emerald-500 text-[10px]" />
-              {isApiKeyActive ? "∞ Key" : session.user.credits !== undefined ? session.user.credits : 0}
-            </div>
+            <Link href="/usage" className="flex items-center h-8 border border-divider rounded bg-bg-page/30 px-2.5 text-xs font-bold text-primary-text">
+              {session.user.plan === "unlimited" ? "Unlimited" : "Free"}
+            </Link>
           )}
           
           <button
@@ -289,17 +264,6 @@ export default function Navbar() {
 
             <div className="h-px bg-divider/50 my-2" />
 
-            {/* Vercel Deploy in Mobile menu */}
-            <a
-              href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FSamurAIGPT%2Fcommon-saas-template"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex w-full items-center justify-center gap-2 rounded-full border border-divider py-3 text-xs font-bold text-secondary-text hover:text-primary-text hover:bg-bg-card transition-all"
-            >
-              <SiVercel className="text-xs text-white" />
-              <span>Clone & Deploy Template</span>
-            </a>
-
             {status === "authenticated" ? (
               <button
                 onClick={() => {
@@ -317,7 +281,7 @@ export default function Navbar() {
                 onClick={() => setIsOpen(false)}
                 className="flex w-full items-center justify-center rounded bg-primary text-white py-3 text-sm font-bold hover:bg-primary-hover transition-all shadow-md shadow-primary/20 mt-2"
               >
-                Sign In
+                Đăng nhập
               </Link>
             )}
           </nav>
@@ -342,7 +306,7 @@ export default function Navbar() {
             </div>
 
             <p className="text-xs text-secondary-text leading-relaxed">
-              Use your own <strong>MuAPI Key</strong> to generate AI creations directly without consuming or purchasing website credits.
+              Key MuAPI dùng cho lượt chat bằng model của bạn. Lượt voice vẫn đi qua hệ thống và được ghi vào trang Usage.
             </p>
 
             <form onSubmit={handleSaveApiKey} className="space-y-4">
